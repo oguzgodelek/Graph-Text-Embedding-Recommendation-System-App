@@ -40,3 +40,13 @@
 .read-the-docs {
   color: #888;
 }
+
+.submissionForm {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  vertical-align: middle;
+  position: relative;
+}
