@@ -26,7 +26,7 @@ async def read_root():
 
 @app.get('/status')
 async def read_status():
-    return {"status": "readyForInput"}
+    return {"status": "entrypoint"}
 
 @app.post('/initialize_only_graph')
 async def initialize_only_graph(graphFileInput: UploadFile = File(...)):

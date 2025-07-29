@@ -26,3 +26,5 @@
 .env
 */.env
 .DS_Store
+
+qdrant_data

@@ -4,7 +4,7 @@ import './App.css'
 
 
 function App() {
-  type systemStatus = "loading" | "readyForInput" | "readyForOutput" | "initializationError" | "processing" | "inputTypeError" | "inputError";
+  type systemStatus = "loading" | "entrypoint" | "readyForInput" | "readyForOutput" | "initializationError" | "processing" | "inputTypeError" | "inputError" | "search";
   const [systemReady, setSystemReady] = useState<systemStatus>("loading");
 
   const apiUrl: string = import.meta.env.API_URL || "http://localhost:8000";
@@ -96,12 +96,26 @@ function App() {
         <button onClick={() => setSystemReady("readyForInput")}>Go back to Mainpage</button>
       </>
     )
-  }else if(systemReady === "readyForInput") {
+  }else if(systemReady === "entrypoint") {
+    return (
+      <>
+        <h1> Welcome to the Recommendation System Application</h1>
+        <p> This application allows you to get recommendations based on your inputs.</p>
+        <p> You can upload description text or relation graph or both to initialize a recommendation session.</p>
+        <div style={{marginRight: "33%", marginLeft: "33%", flexDirection: "column", display: "flex", rowGap: "10px"}}>
+          <button style={{}} type="submit" onClick={() => setSystemReady("readyForOutput")}> Select Initialized Database</button>  
+          <button type="submit" onClick={() => setSystemReady("readyForInput")}> Submit New Data</button> 
+        </div>
+      </>
+    )
+    
+  }
+  else if(systemReady === "readyForInput") {
     return (
     <>
-      <h1> Welcome to the Recommendation System Application</h1>
-      <p> This application allows you to get recommendations based on your input.</p>
+    
       <p> Please upload a file using the box below (accepted file types: .csv/.txt) and click on the "Initialize System" </p>
+      <p>You can upload a graph file, a text file or both.</p>
       <form method="post" encType="multipart/form-data" onSubmit={handleFileSubmission} className="submissionForm">
         <div style={{"display": "flex", "flexDirection": "column", "gap": "10px", marginLeft: "25%"}}>
           <div style={{"display": "flex", "flexDirection": "row", "gap": "10px"}}>
@@ -118,11 +132,18 @@ function App() {
         </div>
          
       </form>
+      <button onClick={() => setSystemReady("entrypoint")}>Back</button>
     </>
     )
   } else if(systemReady === "readyForOutput") {
-  
-  } else if(systemReady === "initializationError") {
+    return (
+      <>
+        <button onClick={() => setSystemReady("entrypoint")}>Back</button>
+      </>
+    )
+  } else if(systemReady === "search"){
+
+  }else if(systemReady === "initializationError") {
     return (
       <>
         <p style={{"color": "red", "fontSize": "30px"}}> Error: Unable to connect to the server. Please check your connection or try again later.</p>
