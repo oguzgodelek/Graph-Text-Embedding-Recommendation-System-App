@@ -2,8 +2,8 @@ FROM python:3.12
 
 WORKDIR /server
 
-COPY requirements.txt /server/
-COPY /src /server/src
+COPY requirements.txt .
+COPY /src ./src
 
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
