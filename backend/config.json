@@ -1,0 +1,22 @@
+{
+    "text_embedding": {
+        "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    },
+    "node_embedding": {
+        "constructor": {
+            "dimensions": 64,
+            "walk_length": 40,
+            "num_walks": 200,
+            "workers": 6,
+            "p": 0.5,
+            "q": 1,
+            "seed": 11
+        },
+        "fit": {
+            "window": 10,
+            "min_count": 1,
+            "batch_words": 4
+        }
+    },
+    "device": "mps"
+}

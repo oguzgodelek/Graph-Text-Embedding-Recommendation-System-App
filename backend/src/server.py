@@ -2,16 +2,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import sys
+import io
+import json
 
 from .utils import database_access
+from .utils import utils
 
-print("Starting FastAPI server...")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         print("🌱 Lifespan starting...")
         app.state.client = database_access.create_client_connection()
+        app.state.config = json.load(open('../config.json'))
         print("✅ Client initialized:", app.state.client) ## Initialization problem
         yield
         app.state.client.close()
@@ -46,31 +49,34 @@ async def read_root():
 async def read_status():
     return {"status": "entrypoint"}
 
+
 @app.post('/initialize_only_graph')
-async def initialize_only_graph(graphFileInput: UploadFile = File(...)):
+async def initialize_only_graph(graph_file_input: UploadFile = File(...)):
     try: 
-        print("File received for graph initialization", graphFileInput)
+        graph_embeddings, collection_name = await utils.get_graph_embeddings(graph_file_input, app.state.config)
         return {"status": "processing"}
     except Exception as e:
         print("Error during graph initialization:", e)
         return {"status": "error", "message": str(e)}
 
+
 @app.post('/initialize_only_text')
-async def initialize_only_text(textFileInput: UploadFile = File(...)):
+async def initialize_only_text(text_file_input: UploadFile = File(...)):
     try: 
-        print("File received for text initialization", textFileInput)
+        
+        text_embeddings, collection_name = await utils.get_text_embeddings(text_file_input, app.state.config)
         return {"status": "processing"}
     except Exception as e:
         print("Error during text initialization:", e)
         return {"status": "error", "message": str(e)}
 
+
 @app.post('/initialize_both')
-async def initialize_both(
-    textFileInput: UploadFile = File(...),
-    graphFileInput: UploadFile = File(...)
-):
+async def initialize_both(text_file_input: UploadFile = File(...),
+                          graph_file_input: UploadFile = File(...)):
     try: 
-        print("File received for both initialization", textFileInput, graphFileInput)
+        graph_embeddings, collection_name = await utils.get_graph_embeddings(graph_file_input, app.state.config['node_embedding'])
+        text_embeddings, _ = await utils.get_text_embeddings(text_file_input, app.state.config)
         return {"status": "processing"}
     except Exception as e:
         print("Error during both initialization:", e)
@@ -86,4 +92,4 @@ async def available_databases():
     except Exception as e:
         print("Error retrieving databases:", e)
         return {"status": "error", "message": str(e)}
-        return {"status": "error", "message": str(e)}
+    
