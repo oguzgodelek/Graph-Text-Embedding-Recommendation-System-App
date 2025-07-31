@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import sys
-import io
 import json
 
 from .utils import database_access
@@ -14,8 +13,11 @@ async def lifespan(app: FastAPI):
     try:
         print("🌱 Lifespan starting...")
         app.state.client = database_access.create_client_connection()
-        app.state.config = json.load(open('../config.json'))
-        print("✅ Client initialized:", app.state.client) ## Initialization problem
+        import os
+        print("📂 Config file path:", os.path.join(os.path.dirname(__file__), '../config.json'))
+        with open('config.json', 'r') as config_file:
+            app.state.config = json.load(config_file)
+        print("✅ Client initialized:", app.state.client)
         yield
         app.state.client.close()
     except BaseException as ex:
@@ -53,7 +55,11 @@ async def read_status():
 @app.post('/initialize_only_graph')
 async def initialize_only_graph(graph_file_input: UploadFile = File(...)):
     try: 
-        graph_embeddings, collection_name = await utils.get_graph_embeddings(graph_file_input, app.state.config)
+        graph_embeddings, collection_name = await utils.get_graph_embeddings(graph_file_input, app.state.config['node_embedding'])
+        await database_access.store_vectors(config=app.state.config,
+                                            client=app.state.client,
+                                            collection_name=collection_name,
+                                            graph_embeddings=graph_embeddings)
         return {"status": "processing"}
     except Exception as e:
         print("Error during graph initialization:", e)
@@ -64,7 +70,8 @@ async def initialize_only_graph(graph_file_input: UploadFile = File(...)):
 async def initialize_only_text(text_file_input: UploadFile = File(...)):
     try: 
         
-        text_embeddings, collection_name = await utils.get_text_embeddings(text_file_input, app.state.config)
+        text_embeddings, collection_name = await utils.get_text_embeddings(text_file_input, app.state.config['text_embedding'])
+
         return {"status": "processing"}
     except Exception as e:
         print("Error during text initialization:", e)

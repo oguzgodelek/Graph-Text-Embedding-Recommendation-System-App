@@ -1,6 +1,32 @@
-import generate_embeddings
+from .generate_embeddings import create_user_item_graph_nx, create_embeddings_node2vec, get_sentence_embeddings
 from fastapi import UploadFile
 import io
+import re
+
+def clean_title(text: str) -> str:
+    text = text.rstrip().lstrip()
+    text = re.sub('^\w\s', '', text)  # Remove special characters
+    return text
+
+
+def clean_description(text: str) -> str:
+    text = re.sub('<.*?>', '', text)  # Delete html tags if there is any
+    text = re.sub('^\w\s', '', text)  # Delete special characters except spaces
+    text = text.replace('&nbsp;', '')  # Delete &nbsp; pattern
+    return text
+
+
+def get_and_clean_data(item_data: list[list[str]]) -> list[str]:
+    return list(map(lambda x: clean_title(x[1]) + ' | ' + clean_description(x[2]), item_data))
+
+
+def create_payload(id: str, item_data: list[list[str]]) -> dict:
+    entry = list(filter(lambda x: x[0] == id, item_data))[0]
+    payload = {
+        "title": clean_title(entry[1]),
+        "description": clean_description(entry[2])
+    }
+    return payload
 
 
 async def read_file(file: UploadFile) -> tuple[list[list[str]], str]:
@@ -12,16 +38,17 @@ async def read_file(file: UploadFile) -> tuple[list[list[str]], str]:
 
 async def get_graph_embeddings(graph_file: UploadFile, config: dict) -> tuple[dict, str]:
     graph_data, collection_name = await read_file(graph_file)
-    interaction_graph = generate_embeddings.create_user_item_graph_nx(graph_data)
-    graph_embeddings = generate_embeddings.create_embeddings_node2vec(interaction_graph, config)
+    interaction_graph = create_user_item_graph_nx(graph_data)
+    graph_embeddings = create_embeddings_node2vec(interaction_graph, config)
     return graph_embeddings, ".".join((collection_name.split('.')[:-1]))
 
 
 async def get_text_embeddings(text_file: UploadFile, config: dict) -> tuple[dict, str]:
     text_data, collection_name = await read_file(text_file)
-    cleaned_data = generate_embeddings.get_and_clean_data(text_data)
-    text_embeddings = generate_embeddings.get_sentence_embeddings(cleaned_data, config)
+    cleaned_data = get_and_clean_data(text_data)
+    text_embeddings = get_sentence_embeddings(cleaned_data, config)
     embedding_dict = {}
     for job_id, embedding in zip(map(lambda x: x[0], text_data), text_embeddings.tolist()):
         embedding_dict[job_id] = embedding
     return text_embeddings, ".".join((collection_name.split('.')[:-1]))
+

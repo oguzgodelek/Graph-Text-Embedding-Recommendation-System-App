@@ -4,6 +4,7 @@ WORKDIR /server
 
 COPY requirements.txt .
 COPY /src ./src
+COPY config.json .
 
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
