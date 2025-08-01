@@ -19,5 +19,5 @@
             "batch_words": 4
         }
     },
-    "device": "mps"
+    "device": "cpu"
 }

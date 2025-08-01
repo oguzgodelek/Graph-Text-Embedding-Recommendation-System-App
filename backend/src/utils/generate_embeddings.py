@@ -6,14 +6,14 @@ from node2vec import Node2Vec
 
 ########## Get text embeddings ############
 
-def get_sentence_embeddings(data: list[str], config: dict):
-    model = SentenceTransformer(config['text_embedding']['model_name'], device=config['device'])
+def get_sentence_embeddings(data: list[str], config: dict) -> np.ndarray:
+    model = SentenceTransformer(config['model'])
     embeddings = model.encode(data)
     return embeddings
 
 
 ########### Generate node embeddings ##########
-def create_user_item_graph_nx(interaction_data: list[list[str]]) -> nx.Graph:
+def create_user_item_graph_nx(interaction_data: list[list[str | int]]) -> nx.Graph:
     # This graph is a weighted bipartite graph that users and jobs are its nodes
     # If there is an interaction between a user and an item there is an edge between these two nodes
     # The weight of the edge is given in the data unless it is 1
@@ -33,5 +33,8 @@ def create_embeddings_node2vec(graph: nx.Graph,
     item_embeddings = {}
     for node, data in graph.nodes(data=True):
         if data.get('type') == 'item':
-            item_embeddings[node] = model.wv[node].tolist()
+            try:
+                item_embeddings[node] = model.wv[node].tolist()
+            except KeyError:
+                item_embeddings[node] = [0 for _ in range(conf_dict['constructor']['dimensions'])]
     return item_embeddings

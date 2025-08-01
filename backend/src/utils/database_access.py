@@ -1,5 +1,5 @@
 from qdrant_client import AsyncQdrantClient, models
-from qdrant_client.models import VectorParams, Distance
+from qdrant_client.models import VectorParams, Distance, PointStruct
 
 from .utils import create_payload
 
@@ -23,22 +23,26 @@ async def store_vectors(client: AsyncQdrantClient,
                         ) -> None:
     # Final vectors are direct concatenation of graph and item embeddings
     # If one is missing, then it is replaced with zero vector
+    if not await client.collection_exists(collection_name):
+        await client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=config['node_embedding']['constructor']['dimensions'] + config['text_embedding']['vector_dim'], distance=Distance.COSINE),
+        )
+
     final_embeddings = {}
     for id in list(item_embeddings.keys()) + list(graph_embeddings.keys()):
-        final_embeddings[id] = (
+        final_embeddings[str(id)] = (
             item_embeddings.get(id, [0 for _ in range(config['text_embedding']['vector_dim'])]) +
-            graph_embeddings.get(id, [0 for _ in range(config['graph_embedding']['constructor']['dimensions'])])
+            graph_embeddings.get(id, [0 for _ in range(config['node_embedding']['constructor']['dimensions'])])
         )
 
     ids = sorted(list(map(int, final_embeddings.keys())))
-    vectors = list(map(lambda x: final_embeddings[str(x)], ids))
-    payloads = list(map(lambda id: create_payload(str(id), item_infos), ids)) if item_infos is not None else [{"id": id for id in ids}]
-    await client.upload_collection(
+    await client.upsert(
         collection_name=collection_name,
-        vectors=vectors,
-        payload=payloads,
-        ids=ids,
-    )
+        points=[PointStruct(id=idx,
+                            vector=final_embeddings[str(idx)],
+                            payload=create_payload(str(idx), item_infos) if item_infos is not None else {"id": id}) for idx in ids]
+        )
 
 
 async def retrieve_k_similar_items(client: AsyncQdrantClient, collection_name:str, item_id: str, k: int):

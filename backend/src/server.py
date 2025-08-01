@@ -14,7 +14,6 @@ async def lifespan(app: FastAPI):
         print("🌱 Lifespan starting...")
         app.state.client = database_access.create_client_connection()
         import os
-        print("📂 Config file path:", os.path.join(os.path.dirname(__file__), '../config.json'))
         with open('config.json', 'r') as config_file:
             app.state.config = json.load(config_file)
         print("✅ Client initialized:", app.state.client)
@@ -53,38 +52,51 @@ async def read_status():
 
 
 @app.post('/initialize_only_graph')
-async def initialize_only_graph(graph_file_input: UploadFile = File(...)):
-    try: 
-        graph_embeddings, collection_name = await utils.get_graph_embeddings(graph_file_input, app.state.config['node_embedding'])
-        await database_access.store_vectors(config=app.state.config,
+async def initialize_only_graph(graphFileInput: UploadFile = File(...)):
+    graph_embeddings, collection_name = await utils.get_graph_embeddings(graphFileInput, app.state.config['node_embedding'])
+    await database_access.store_vectors(config=app.state.config,
                                             client=app.state.client,
                                             collection_name=collection_name,
                                             graph_embeddings=graph_embeddings)
-        return {"status": "processing"}
+    try: 
+        print("Graph file received:", graphFileInput.filename)
+        
+        return {"collection_name": collection_name}
     except Exception as e:
         print("Error during graph initialization:", e)
         return {"status": "error", "message": str(e)}
 
 
 @app.post('/initialize_only_text')
-async def initialize_only_text(text_file_input: UploadFile = File(...)):
+async def initialize_only_text(textFileInput: UploadFile = File(...)):
     try: 
-        
-        text_embeddings, collection_name = await utils.get_text_embeddings(text_file_input, app.state.config['text_embedding'])
 
-        return {"status": "processing"}
+        text_embeddings, collection_name, item_info = await utils.get_text_embeddings(textFileInput, app.state.config['text_embedding'])
+        await database_access.store_vectors(config=app.state.config,
+                                            client=app.state.client,
+                                            collection_name=collection_name,
+                                            item_embeddings=text_embeddings,
+                                            item_infos=item_info)
+        return {"collection_name": collection_name}
     except Exception as e:
         print("Error during text initialization:", e)
         return {"status": "error", "message": str(e)}
 
 
 @app.post('/initialize_both')
-async def initialize_both(text_file_input: UploadFile = File(...),
-                          graph_file_input: UploadFile = File(...)):
-    try: 
-        graph_embeddings, collection_name = await utils.get_graph_embeddings(graph_file_input, app.state.config['node_embedding'])
-        text_embeddings, _ = await utils.get_text_embeddings(text_file_input, app.state.config)
-        return {"status": "processing"}
+async def initialize_both(textFileInput: UploadFile = File(...),
+                          graphFileInput: UploadFile = File(...)):
+    graph_embeddings, collection_name = await utils.get_graph_embeddings(graphFileInput,
+                                                                         app.state.config['node_embedding'])
+    text_embeddings, _, item_info = await utils.get_text_embeddings(textFileInput, app.state.config['text_embedding'])
+    await database_access.store_vectors(config=app.state.config,
+                                        client=app.state.client,
+                                        collection_name=collection_name,
+                                        graph_embeddings=graph_embeddings,
+                                        item_embeddings=text_embeddings,
+                                        item_infos=item_info)
+    try:
+        return {"collection_name": collection_name}
     except Exception as e:
         print("Error during both initialization:", e)
         return {"status": "error", "message": str(e)}
