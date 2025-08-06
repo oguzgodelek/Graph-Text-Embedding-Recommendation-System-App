@@ -3,6 +3,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import sys
 import json
+from pydantic import BaseModel
 
 from .utils import database_access
 from .utils import utils
@@ -102,13 +103,61 @@ async def initialize_both(textFileInput: UploadFile = File(...),
         return {"status": "error", "message": str(e)}
 
 
-@app.get('/available_databases')
-async def available_databases():
+class CollectionResponse(BaseModel):
+    count: int
+    collectionList: list[str]
+    message: str
+
+
+@app.get('/available_collections')
+async def available_collections() -> CollectionResponse:
     try:
         # Get databases from the client stored in app state
-        databases = await database_access.get_collection_names(app.state.client)
-        return {"databases": databases}
-    except Exception as e:
-        print("Error retrieving databases:", e)
-        return {"status": "error", "message": str(e)}
-    
+        collections = await database_access.get_collection_names(app.state.client)
+        return CollectionResponse(count=len(collections),
+                                  collectionList=collections,
+                                  message="OK" if len(collections) > 0 else "No collection found")
+    except Exception as ex:
+        print("Error retrieving collections:", ex)
+        return CollectionResponse(count=0, collectionList=[], message=str(ex))
+
+
+class Item(BaseModel):
+    id: str
+    name: str
+    description: str
+
+
+class ItemResponse(BaseModel):
+    count: int
+    itemList: list[Item]
+    message: str
+
+
+@app.get('/retrieve_similar/{k}/{collection}/{id}')
+async def retrieve_similar(k: int, collection: str, id: str) -> ItemResponse:
+    try:
+        # Get databases from the client stored in app state
+        items: list[dict[str, str]] = await database_access.retrieve_k_similar_items(app.state.client,
+                                                                                     collection,
+                                                                                     id, k)
+        return ItemResponse(count=len(items),
+                            itemList=list(map(lambda item: Item(**item), items)),
+                            message="OK" if len(items) > 0 else "No item found")
+    except Exception as ex:
+        print("Error retrieving similar collections:", ex)
+        return ItemResponse(count=0, itemList=[], message=str(ex))
+
+
+@app.get('/retrieve_random/{k}/{collection}')
+async def retrieve_random(k: int, collection: str) -> ItemResponse:
+    try:
+        # Get databases from the client stored in app state
+        items: list[dict[str, str]] = await database_access.retrieve_random_k_items(app.state.client,
+                                                                                    collection, k)
+        return ItemResponse(count=len(items),
+                            itemList=list(map(lambda item: Item(**item), items)),
+                            message="OK" if len(items) > 0 else "No item found")
+    except Exception as ex:
+        print("Error retrieving random collections:", ex)
+        return ItemResponse(count=0, itemList=[], message=str(ex))

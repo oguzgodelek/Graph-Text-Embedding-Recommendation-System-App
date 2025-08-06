@@ -29,10 +29,10 @@ def create_payload(id: str, item_data: list[list[str]]) -> dict:
     return payload
 
 
-async def read_file(file: UploadFile, isInteraction: bool) -> tuple[list[list[int | str]], str]:
+async def read_file(file: UploadFile, is_interaction: bool) -> tuple[list[list[int | str]], str]:
     raw_data = await file.read()
     data = io.StringIO(raw_data.decode('utf-8'))
-    if isInteraction:
+    if is_interaction:
         data = list(map(lambda x: [int(x[0]), int(x[1]), int(x[2])], map(lambda x: x.split(','), data.read().split('\n')[1:-1])))
     else:
         data = list(map(lambda x: x.split(','), data.read().split('\n')[1:-1]))

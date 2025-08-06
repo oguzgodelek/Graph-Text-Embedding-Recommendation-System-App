@@ -1,50 +1,75 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import {type Status, type ItemResponse, type CollectionResponse, type Item} from './DataTypes.ts'
 
+const itemCount: number = 20;
 
-
-function App() {
-  type systemStatus = "loading" | "entrypoint" | "readyForInput" | "readyForOutput" | "initializationError" | "processing" | "inputTypeError" | "inputError" | "search";
-  const [systemReady, setSystemReady] = useState<systemStatus>("loading");
-  const [availableDatabases, setAvailableDatabases] = useState<string[]>([]);
+function App(){
+  const [systemStatus, setSystemStatus] = useState<Status>("loading");
+  const [availableCollections, setAvailableCollections] = useState<string[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<string>("");
+  const [itemList, setItemList] = useState<Item[]>([]);
 
   const apiUrl: string = import.meta.env.API_URL || "http://localhost:8000";
   useEffect(() => { 
     const fetchStatus = async () => {
       try {
-        const response: any = await fetch(`${apiUrl}/status`, { method: "GET" });
+        const response: Response = await fetch(`${apiUrl}/status`, { method: "GET" });
         const data: any = await response.json();
-        const status: systemStatus = data.status;
-        setSystemReady(status);
+        const status: Status = data.status;
+        setSystemStatus(status);
       } catch (error) {
         console.error("Error fetching system status:", error);
-        setSystemReady("initializationError");
+        setSystemStatus("initializationError");
       }
     };
     fetchStatus();
   }, []);
 
   useEffect(() => {
-    const fetchDatabases = async () => {
+    const fetchCollections = async () => {
       try {
-        const response: any = await fetch(`${apiUrl}/available_databases`, { method: "GET" });
-        const data: any = await response.json();
-        const databases: string[] = data.databases;
-        setAvailableDatabases(databases);
+        const response: Response = await fetch(`${apiUrl}/available_collections`, { method: "GET" });
+        const data: CollectionResponse = await response.json();
+        const collections: string[] = data.collectionList;
+        setAvailableCollections(collections);
       } catch (error) {
         console.error("Error fetching available databases:", error);
-        setSystemReady("initializationError");
+        setSystemStatus("initializationError");
       }
       
     };
 
-    if (systemReady === "readyForOutput") {
-      fetchDatabases();
+    if (systemStatus === "readyForOutput") {
+      fetchCollections();
     }
-  }, [systemReady]);
+  }, [systemStatus]);
+
+  useEffect(() => {
+    const fetchItems = async (): Promise<void> => {
+      try {
+        const response: Response = await fetch(`${apiUrl}/retrieve_random/${itemCount}/${selectedCollection}`)
+        const data: ItemResponse = await response.json();
+        const items: Item[] = data.itemList;
+        setItemList(items);
+      } catch (error) {
+        console.error("Error fetching available databases:", error);
+        setSystemStatus("initializationError");
+      }
+
+    };
+
+    if (systemStatus === "search") {
+      fetchItems();
+    }else {
+        setSystemStatus("initializationError");
+    }
+
+  }, [selectedCollection]);
 
   const handleFileSubmission = async (event: React.FormEvent<HTMLFormElement>) => {
-    setSystemReady("processing");
+    alert("File submission started");
+    setSystemStatus("entrypoint");
     event.preventDefault();
     const formData: FormData = new FormData(event.currentTarget);
     console.log("Form data submitted:", formData.get("fileInput"));
@@ -58,7 +83,7 @@ function App() {
 
       if (!hasGraphFile && !hasTextFile) {
         alert("Please upload at least one file.");
-        setSystemReady("readyForInput");
+        setSystemStatus("readyForInput");
         return;
       } else if (!hasGraphFile) {
         response = await fetch(`${apiUrl}/initialize_only_text`, {
@@ -77,46 +102,44 @@ function App() {
         });
       }
       
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
       const data: any = await response.json();
-      setSystemReady(data.status);
+      alert("Output is ready: " + data.collection_name);
+      
     } catch (error) {
         console.error("Error submitting file:", error);
-        setSystemReady("inputError");  
+        setSystemStatus("inputError");
       }
 }
 
-  if(systemReady === "loading") {
+  if(systemStatus === "loading") {
     return (
       <>
         <p style={{"fontSize": "50px"}}> Loading ...</p>
       </>
     )
-  } else if(systemReady === "processing") {
+  } else if(systemStatus === "processing") {
     return (
       <>
         <p style={{"fontSize": "50px"}}> Processing input ...</p>
       </>
     )
   
-  } else if(systemReady === "inputTypeError"){
+  } else if(systemStatus === "inputTypeError"){
     return (
       <>
         <p style={{"fontSize": "50px"}}>The structure of your input file is not proper</p>
         <p style={{"fontSize": "40px"}}>Please change the structure and resubmit your file</p>
-        <button onClick={() => setSystemReady("readyForInput")}>Go back to Mainpage</button>
+        <button onClick={() => setSystemStatus("readyForInput")}>Go back to Mainpage</button>
       </>
     )
-  }else if(systemReady === "inputError"){
+  }else if(systemStatus === "inputError"){
     return (
       <>
         <p style={{"fontSize": "50px"}}> Submission Error </p>
-        <button onClick={() => setSystemReady("readyForInput")}>Go back to Mainpage</button>
+        <button onClick={() => setSystemStatus("readyForInput")}>Go back to Mainpage</button>
       </>
     )
-  }else if(systemReady === "entrypoint") {
+  }else if(systemStatus === "entrypoint") {
     return (
       <>
         <h1> Welcome to the Recommendation System Application</h1>
@@ -129,11 +152,11 @@ function App() {
                      rowGap: "10px"}}>
           <button style={{}} 
                   type="submit" 
-                  onClick={() => setSystemReady("readyForOutput")}> 
+                  onClick={() => setSystemStatus("readyForOutput")}>
             Select Initialized Database
           </button>  
           <button type="submit" 
-                  onClick={() => setSystemReady("readyForInput")}> 
+                  onClick={() => setSystemStatus("readyForInput")}>
             Submit New Data
           </button> 
         </div>
@@ -141,7 +164,7 @@ function App() {
     )
     
   }
-  else if(systemReady === "readyForInput") {
+  else if(systemStatus === "readyForInput") {
     return (
   <>
     <p>
@@ -208,19 +231,19 @@ function App() {
         <button type="submit">Initialize System</button>
       </div>
     </form>
-    <button style={{ marginTop: "50px" }} onClick={() => setSystemReady("entrypoint")}>Back</button>
+    <button style={{ marginTop: "50px" }} onClick={() => setSystemStatus("entrypoint")}>Back</button>
   </>
 );
-  } else if(systemReady === "readyForOutput") {
+  } else if(systemStatus === "readyForOutput") {
     return (
       <>
         <h1> Select an Initialized Database</h1>
         <p> You can select an initialized database to get recommendations.</p>
         <p> Please select a database from the list below:</p>
         <div style={{ marginRight: "33%", marginLeft: "33%", flexDirection: "column", display: "flex", rowGap: "10px" }}>
-          {availableDatabases.length > 0 ? (
-            availableDatabases.map((db, index) => (
-              <button key={index} onClick={() => setSystemReady("search")}>
+          {availableCollections.length > 0 ? (
+            availableCollections.map((db, index) => (
+              <button key={index} onClick={(): void => {setSelectedCollection(db); setSystemStatus("search");  }}>
                 {db}
               </button>
             ))
@@ -230,14 +253,48 @@ function App() {
               <p>Please initialize a database first.</p>
             </div>
           )}
-          <button onClick={() => setSystemReady("entrypoint")}>Back</button>
+          <button onClick={() => setSystemStatus("entrypoint")}>Back</button>
         </div>
       </>
     )
-  } else if(systemReady === "search"){
-
-  }else if(systemReady === "initializationError") {
+  } else if(systemStatus === "search"){
     return (
+        <>
+            <table className="table-auto border-collapse border border-gray-300 w-full">
+      <thead>
+      <tr className="bg-gray-200">
+          <th className="border border-gray-300 px-4 py-2">ID</th>
+          <th className="border border-gray-300 px-4 py-2">Name</th>
+          <th className="border border-gray-300 px-4 py-2">Description</th>
+          <th className="border border-gray-300 px-4 py-2">Select</th>
+      </tr>
+      </thead>
+                <tbody>
+                {itemList.map((item: Item) => (
+                    <tr key={item.id}>
+                        <td className="border border-gray-300 px-4 py-2">{item.id}</td>
+                        <td className="border border-gray-300 px-4 py-2">{item.name}</td>
+                        <td className="border border-gray-300 px-4 py-2">{item.description}</td>
+                        <td className="border border-gray-300 px-4 py-2"><button onClick={async (): Promise<void> => {
+                            try {
+                                const response: Response = await fetch(`${apiUrl}/retrieve_similar/${itemCount}/${selectedCollection}/${item.id}`)
+                                const data: ItemResponse = await response.json();
+                                const items: Item[] = data.itemList;
+                                setItemList(items);
+                            } catch (error) {
+                                console.error("Error fetching available databases:", error);
+                                setSystemStatus("initializationError");
+                             }
+                        }}> Select </button></td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+            <button onClick={() => setSystemStatus("readyForOutput")}>Back</button>
+        </>
+    )
+  } else if (systemStatus === "initializationError") {
+      return (
       <>
         <p style={{"color": "red", "fontSize": "30px"}}> Error: Unable to connect to the server. Please check your connection or try again later.</p>
       </>

@@ -1,11 +1,12 @@
-version: '3.8'
 services:
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/src:/server/app
+      - ./backend/src:/server/src
+    depends_on:
+      - qdrant
 
   frontend:
     build: ./frontend
